@@ -42,7 +42,7 @@ docker-compose logs -f
 **Detener la aplicación:**
 ```bash
 docker-compose down
-
+```
 
 **Crear directorio para certificados:**
 ```bash
