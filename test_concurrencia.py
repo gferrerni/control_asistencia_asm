@@ -8,9 +8,9 @@ import pandas as pd
 import json
 
 # Configuración
-BASE_URL = "http://localhost:5000"  # Ajusta según tu configuración
-NUM_THREADS = 10 # Número de hilos concurrentes
-NUM_REQUESTS = 100  # Número total de peticiones por hilo
+BASE_URL = "https://localhost:5000"  # Ajusta según tu configuración
+NUM_THREADS = 50 # Número de hilos concurrentes
+NUM_REQUESTS = 50  # Número total de peticiones por hilo
 DELAY_MIN = 0.1  # Delay mínimo entre peticiones
 DELAY_MAX = 0.5  # Delay máximo entre peticiones
 
@@ -42,8 +42,12 @@ def make_request(qr_code):
         # Simular un pequeño delay aleatorio
         time.sleep(random.uniform(DELAY_MIN, DELAY_MAX))
         
+        # Configurar la sesión para ignorar la verificación SSL
+        session = requests.Session()
+        session.verify = False  # Ignorar verificación SSL para certificados autofirmados
+        
         # Realizar la petición
-        response = requests.post(
+        response = session.post(
             f"{BASE_URL}/marcar_asistencia",
             data={'valor_qr': qr_code},
             timeout=5

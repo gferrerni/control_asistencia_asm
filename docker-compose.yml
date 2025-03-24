@@ -8,6 +8,7 @@ services:
       - "5000:5000"
     volumes:
       - ./socios.csv:/app/socios.csv
+      - ./info_evento.json:/app/info_evento.json
     restart: unless-stopped
     environment:
       - FLASK_ENV=production

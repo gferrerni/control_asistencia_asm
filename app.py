@@ -14,6 +14,10 @@ app = Flask(__name__, static_url_path='/static')
 CSV_FILE = 'socios.csv'
 LOCK_FILE = 'socios.csv.lock'
 EVENTO_FILE = 'info_evento.json'
+with open(EVENTO_FILE, 'r') as f:
+    INFO_EVENTO = json.load(f)
+    FECHA_INICIO = datetime.fromisoformat(INFO_EVENTO.get('fecha_evento'))
+    FECHA_TOPE = datetime.fromisoformat(INFO_EVENTO.get('fecha_tope_asistencia'))
 lock = Lock()
 
 def leer_csv():
@@ -28,15 +32,10 @@ def guardar_csv(df):
     with FileLock(LOCK_FILE, timeout=10):
         df.to_csv(CSV_FILE, index=False)
 
-def verificar_fecha_hora_tope():
+def verificar_fecha_hora_tope(ahora):
     """Verifica si se ha pasado la fecha y hora tope para registrar asistencia"""
     try:
-        with open(EVENTO_FILE, 'r') as f:
-            info_evento = json.load(f)
-            fecha_tope = datetime.fromisoformat(info_evento.get('fecha_tope_asistencia'))
-            ahora = datetime.now()
-            es_valido = ahora <= fecha_tope
-            return es_valido
+        return ahora >= FECHA_INICIO and ahora < FECHA_TOPE
     except Exception as e:
         # Si hay error al leer el archivo, NO permitimos el registro para garantizar seguridad
         return False  # Cambiado a False para ser estrictos en caso de error
@@ -84,47 +83,47 @@ def marcar_asistencia():
     """Marca la asistencia de un socio"""
     with lock:
         # Verificar si se ha pasado la fecha y hora tope
-        if not verificar_fecha_hora_tope():
+        if not verificar_fecha_hora_tope(datetime.now()):
             return redirect(url_for('index', error='⚠️ REGISTRO DE ASISTENCIA CERRADO: Se ha superado la fecha y hora límite para registrar asistencia'))
+        else:    
+            # Aceptar tanto número de socio como valor_qr
+            numero_socio = request.form.get('numero_socio', '')
+            valor_qr = request.form.get('valor_qr', '')
             
-        # Aceptar tanto número de socio como valor_qr
-        numero_socio = request.form.get('numero_socio', '')
-        valor_qr = request.form.get('valor_qr', '')
-        
-        # Manejo de concurrencia para actualizar el CSV
-        max_intentos = 5
-        for intento in range(max_intentos):
-            try:
-                df = leer_csv()
-                
-                # Buscar por número de socio o por valor_qr
-                if numero_socio and numero_socio.isdigit():
-                    numero_socio = int(numero_socio)
-                    # Verificar si el socio existe
-                    if numero_socio not in df['numero_socio'].values:
-                        return redirect(url_for('index', error=f'No se encontró socio con número {numero_socio}'))
+            # Manejo de concurrencia para actualizar el CSV
+            max_intentos = 5
+            for intento in range(max_intentos):
+                try:
+                    df = leer_csv()
                     
-                    # Marcar asistencia por número de socio
-                    df.loc[df['numero_socio'] == numero_socio, 'asiste'] = 1
-                elif valor_qr:
-                    # Verificar si el QR existe
-                    if valor_qr not in df['valor_qr'].values:
-                        return redirect(url_for('index', error=f'No se encontró socio con QR {valor_qr}'))
+                    # Buscar por número de socio o por valor_qr
+                    if numero_socio and numero_socio.isdigit():
+                        numero_socio = int(numero_socio)
+                        # Verificar si el socio existe
+                        if numero_socio not in df['numero_socio'].values:
+                            return redirect(url_for('index', error=f'No se encontró socio con número {numero_socio}'))
+                        
+                        # Marcar asistencia por número de socio
+                        df.loc[df['numero_socio'] == numero_socio, 'asiste'] = 1
+                    elif valor_qr:
+                        # Verificar si el QR existe
+                        if valor_qr not in df['valor_qr'].values:
+                            return redirect(url_for('index', error=f'No se encontró socio con QR {valor_qr}'))
+                        
+                        # Marcar asistencia por QR
+                        df.loc[df['valor_qr'] == valor_qr, 'asiste'] = 1
+                    else:
+                        return redirect(url_for('index', error='Número de socio o QR inválido'))
                     
-                    # Marcar asistencia por QR
-                    df.loc[df['valor_qr'] == valor_qr, 'asiste'] = 1
-                else:
-                    return redirect(url_for('index', error='Número de socio o QR inválido'))
-                
-                guardar_csv(df)
-                return redirect(url_for('index'))
-            except Exception as e:
-                # Si hay error por bloqueo, esperar un poco y reintentar
-                if intento < max_intentos - 1:
-                    time.sleep(0.5)  # Pequeña pausa antes de reintentar
-                else:
-                    return redirect(url_for('index', error=f'Error al actualizar asistencia: {str(e)}'))
-        
+                    guardar_csv(df)
+                    return redirect(url_for('index'))
+                except Exception as e:
+                    # Si hay error por bloqueo, esperar un poco y reintentar
+                    if intento < max_intentos - 1:
+                        time.sleep(0.5)  # Pequeña pausa antes de reintentar
+                    else:
+                        return redirect(url_for('index', error=f'Error al actualizar asistencia: {str(e)}'))
+            
         return redirect(url_for('index'))
 
 @app.route('/lista')
@@ -142,8 +141,6 @@ def proyector():
     total = df.shape[0]
     return render_template('proyector.html', asistentes=asistentes, total=total)
 
-"""
-# Endpoint comentado: reset_asistencia
 @app.route('/reset_asistencia', methods=['POST'])
 def reset_asistencia():
     #Reinicia todas las asistencias a 0
@@ -159,9 +156,7 @@ def reset_asistencia():
                 time.sleep(0.5)
             else:
                 return redirect(url_for('index', error=f'Error al reiniciar asistencias: {str(e)}'))
-    
     return redirect(url_for('index'))
-"""
 
 @app.route('/api/socios', methods=['GET'])
 def api_socios():
@@ -183,8 +178,8 @@ def api_asistentes():
 @app.route('/info_evento.json')
 def get_info_evento():
     """Endpoint para servir el archivo info_evento.json"""
-    return send_from_directory('.', 'info_evento.json')
-
+    #return send_from_directory('.', 'info_evento.json')
+    return jsonify(INFO_EVENTO)
 if __name__ == '__main__':
     ssl_context = ('certs/cert.pem', 'certs/key.pem')
     app.run(host='0.0.0.0', port=5000, debug=True, ssl_context=ssl_context) 
