@@ -12,6 +12,7 @@ services:
     restart: unless-stopped
     environment:
       - FLASK_ENV=production
+      - TZ=Europe/Madrid
     command: python3 app.py
     networks:
       - app_network
