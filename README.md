@@ -42,6 +42,16 @@ docker-compose logs -f
 **Detener la aplicación:**
 ```bash
 docker-compose down
+
+
+**Crear directorio para certificados:**
+```bash
+mkdir -p certs
+```
+
+**Generar certificados SSL autofirmados**
+```bash
+openssl req -x509 -newkey rsa:4096 -nodes -out certs/cert.pem -keyout certs/key.pem -days 365 -subj "/CN=localhost"
 ```
 
 **Reconstruir la aplicación después de cambios:**
