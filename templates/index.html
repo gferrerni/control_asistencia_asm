@@ -183,99 +183,72 @@
         const qrScanButton = document.getElementById('scan-qr-button');
         const qrReader = document.getElementById('qr-reader');
         const busquedaInput = document.getElementById('busqueda-input');
-        const cameraPermissionModal = new bootstrap.Modal(document.getElementById('cameraPermissionModal'));
-        const startCameraButton = document.getElementById('startCameraButton');
-        let html5QrCode;
+        let html5QrcodeScanner;
         let escaneando = false;
-        
+
+        function onScanSuccess(decodedText, decodedResult) {
+            // Manejar el código QR escaneado
+            console.log(`Código QR escaneado: ${decodedText}`);
+            
+            // Detener el escaneo
+            detenerEscaneo();
+            
+            // Establecer el valor en el campo de búsqueda
+            busquedaInput.value = decodedText;
+            
+            // Enviar el formulario
+            busquedaInput.form.submit();
+        }
+
+        function onScanError(errorMessage) {
+            // Manejar errores de escaneo
+            console.warn(`Error de escaneo: ${errorMessage}`);
+        }
+
         qrScanButton.addEventListener('click', function() {
             if (escaneando) {
                 detenerEscaneo();
             } else {
-                // Mostrar modal de permisos antes de iniciar el escaneo
-                cameraPermissionModal.show();
+                iniciarEscaneo();
             }
         });
-        
-        startCameraButton.addEventListener('click', function() {
-            cameraPermissionModal.hide();
-            iniciarEscaneo();
-        });
-        
+
         function iniciarEscaneo() {
             qrReader.style.display = 'block';
             escaneando = true;
             qrScanButton.textContent = 'Detener Escaneo';
             qrScanButton.classList.remove('btn-outline-primary');
             qrScanButton.classList.add('btn-outline-danger');
-            
+
             // Crear instancia del escáner
-            html5QrCode = new Html5Qrcode("qr-reader");
-            
-            const qrCodeSuccessCallback = (decodedText, decodedResult) => {
-                // Manejar el código QR escaneado
-                console.log(`Código QR escaneado: ${decodedText}`);
-                
-                // Detener el escaneo
-                detenerEscaneo();
-                
-                // Establecer el valor en el campo de búsqueda
-                busquedaInput.value = decodedText;
-                
-                // Enviar el formulario
-                busquedaInput.form.submit();
-            };
-            
-            const config = { 
-                fps: 10,
-                qrbox: { width: 250, height: 250 },
-                aspectRatio: 1.0,
-                formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ]
-            };
-            
-            // Verificar si el navegador soporta getUserMedia
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                alert("Tu navegador no soporta el acceso a la cámara. Por favor, usa un navegador más moderno.");
-                detenerEscaneo();
-                return;
-            }
-            
-            // Intentar obtener permisos de cámara primero
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-                .then(stream => {
-                    // Si tenemos permisos, iniciar el escaneo
-                    html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback)
-                        .catch((err) => {
-                            // Si falla con la cámara trasera, intentar con cualquier cámara disponible
-                            html5QrCode.start({ facingMode: "user" }, config, qrCodeSuccessCallback)
-                                .catch((err) => {
-                                    console.error("Error al iniciar el escáner de QR:", err);
-                                    detenerEscaneo();
-                                    alert("No se pudo acceder a la cámara. Asegúrate de dar permisos de cámara al navegador.");
-                                });
-                        });
-                })
-                .catch(err => {
-                    console.error("Error al obtener permisos de cámara:", err);
-                    detenerEscaneo();
-                    alert("No se pudieron obtener los permisos de cámara. Por favor, verifica los permisos en la configuración de tu navegador.");
-                });
+            html5QrcodeScanner = new Html5QrcodeScanner(
+                "qr-reader", 
+                { 
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.0
+                }
+            );
+
+            // Renderizar el escáner
+            html5QrcodeScanner.render(onScanSuccess, onScanError);
         }
-        
+
         function detenerEscaneo() {
-            if (html5QrCode && html5QrCode.isScanning) {
-                html5QrCode.stop().then(() => {
-                    console.log('Escaneo de QR detenido.');
-                }).catch((err) => {
-                    console.error('Error al detener el escaneo:', err);
-                });
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.clear()
+                    .then(() => {
+                        console.log('Escaneo detenido correctamente');
+                        qrReader.style.display = 'none';
+                        escaneando = false;
+                        qrScanButton.textContent = 'Escanear Código QR';
+                        qrScanButton.classList.remove('btn-outline-danger');
+                        qrScanButton.classList.add('btn-outline-primary');
+                    })
+                    .catch((err) => {
+                        console.error('Error al detener el escaneo:', err);
+                    });
             }
-            
-            qrReader.style.display = 'none';
-            escaneando = false;
-            qrScanButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-qr-code-scan me-1" viewBox="0 0 16 16"><path d="M0 1.5A1.5 1.5 0 0 1 1.5 0h3A1.5 1.5 0 0 1 6 1.5v3A1.5 1.5 0 0 1 4.5 6h-3A1.5 1.5 0 0 1 0 4.5zM1.5 1a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zM4 9.5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 10 9.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 4 12.5zM5.5 9a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zM0 9.5A1.5 1.5 0 0 1 1.5 8h3A1.5 1.5 0 0 1 6 9.5v3A1.5 1.5 0 0 1 4.5 14h-3A1.5 1.5 0 0 1 0 12.5zM1.5 9a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zM10 1.5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 16 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 10 4.5zM11.5 1a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5z"/><path d="M3.5 5.5a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1H4a.5.5 0 0 1-.5-.5m0 5a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1H4a.5.5 0 0 1-.5-.5m4-3a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1H8a.5.5 0 0 1-.5-.5m0 3a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1H8a.5.5 0 0 1-.5-.5m-7-8a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5"/></svg> Escanear Código QR';
-            qrScanButton.classList.remove('btn-outline-danger');
-            qrScanButton.classList.add('btn-outline-primary');
         }
     </script>
     
