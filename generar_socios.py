@@ -30,11 +30,11 @@ for i in range(1, 501):
     # Generar QR con formato alfanumérico (letra + número)
     prefijo = random.choice(string.ascii_uppercase)
     if i < 10:
-        valor_qr = f"{prefijo}00{i}"
+        valor_qr = f"GLO000000{i}"
     elif i < 100:
-        valor_qr = f"{prefijo}0{i}"
+        valor_qr = f"GLO00000{i}"
     else:
-        valor_qr = f"{prefijo}{i}"
+        valor_qr = f"GLO0000{i}"
     
     # Seleccionar nombres y apellidos aleatorios
     nombre = random.choice(nombres)

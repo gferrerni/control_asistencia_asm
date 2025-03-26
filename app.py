@@ -127,11 +127,22 @@ def marcar_asistencia():
         return redirect(url_for('index'))
 
 @app.route('/lista')
-def lista_socios():
-    """Muestra la lista completa de socios con su estado de asistencia"""
+def lista():
+    """Muestra la lista completa de socios"""
     df = leer_csv()
-    socios = df.to_dict('records')
-    return render_template('lista.html', socios=socios)
+    fecha_actual = datetime.now()
+    
+    # Calcular totales
+    total_socios = df.shape[0]
+    total_presentes = df['asiste'].sum()
+    total_ausentes = total_socios - total_presentes
+    
+    return render_template('lista.html', 
+                         df=df, 
+                         fecha_actual=fecha_actual,
+                         total_socios=total_socios,
+                         total_presentes=total_presentes,
+                         total_ausentes=total_ausentes)
 
 @app.route('/proyector')
 def proyector():

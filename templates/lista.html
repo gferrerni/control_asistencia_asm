@@ -3,71 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lista de Socios</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Lista de Asistencia</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body {
-            padding: 20px 0;
+        /* Estilos generales */
+        .presente {
+            background-color: #fff3cd !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
         }
-        .container {
-            max-width: 900px;
+        .print-only {
+            display: none;
         }
-        .table-responsive {
-            margin-bottom: 20px;
+        .hide-in-print {
+            display: none !important;
         }
-        .asistio {
-            background-color: rgba(25, 135, 84, 0.2);
-        }
-        .con-deuda {
-            color: #dc3545;
-            font-weight: bold;
+        
+        /* Estilos específicos para impresión */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .print-only {
+                display: block !important;
+            }
+            body {
+                padding: 20px;
+            }
+            .table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            .table th, .table td {
+                border: 1px solid #ddd;
+                padding: 8px;
+                text-align: left;
+            }
+            .table th {
+                background-color: #f8f9fa !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            /* Asegurar que los colores se impriman */
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            /* Asegurar que el fondo amarillo se imprima */
+            tr.presente td {
+                background-color: #fff3cd !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1 class="text-center mb-4">Lista de Socios</h1>
-        
-        <div class="mb-3">
-            <input type="text" id="buscador" class="form-control" placeholder="Buscar por nombre o número...">
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>Lista de Asistencia</h1>
+            <div class="no-print">
+                <a href="{{ url_for('index') }}" class="btn btn-secondary me-2">Volver</a>
+                <button class="btn btn-primary" onclick="window.print()">
+                    🖨️ Imprimir Lista
+                </button>
+            </div>
         </div>
-        
+
+        <div class="print-only text-center mb-4">
+            <h2>Lista de Asistencia</h2>
+            <p>Fecha: {{ fecha_actual.strftime('%d/%m/%Y %H:%M') }}</p>
+        </div>
+
         <div class="table-responsive">
-            <table class="table table-bordered table-hover">
-                <thead class="table-dark">
+            <table class="table">
+                <thead>
                     <tr>
-                        <th>Nº Socio</th>
+                        <th>Número de Socio</th>
                         <th>Nombre</th>
                         <th>Apellidos</th>
-                        <th>Deudas</th>
-                        <th>Asistencia</th>
-                        <th>Acciones</th>
+                        <th class="hide-in-print">Asistencia</th>
+                        <th class="no-print">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for socio in socios %}
-                    <tr class="{% if socio.asiste == 1 %}asistio{% endif %}" data-search="{{ socio.numero_socio }} {{ socio.nombre }} {{ socio.apellidos }}">
-                        <td>{{ socio.numero_socio }}</td>
-                        <td>{{ socio.nombre }}</td>
-                        <td>{{ socio.apellidos }}</td>
-                        <td>
-                            {% if socio.deudas == 1 %}
-                            <span class="con-deuda">SÍ</span>
+                    {% for _, row in df.iterrows() %}
+                    <tr {% if row['asiste'] == 1 %}class="presente"{% endif %}>
+                        <td>{{ row['numero_socio'] }}</td>
+                        <td>{{ row['nombre'] }}</td>
+                        <td>{{ row['apellidos'] }}</td>
+                        <td class="hide-in-print">
+                            {% if row['asiste'] == 1 %}
+                            <span class="badge bg-success">Presente</span>
                             {% else %}
-                            NO
+                            <span class="badge bg-danger">Ausente</span>
                             {% endif %}
                         </td>
-                        <td>
-                            {% if socio.asiste == 1 %}
-                            <span class="badge bg-success">SÍ</span>
-                            {% else %}
-                            <span class="badge bg-danger">NO</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if socio.asiste == 0 %}
-                            <form action="/marcar_asistencia" method="post" class="d-inline">
-                                <input type="hidden" name="numero_socio" value="{{ socio.numero_socio }}">
+                        <td class="no-print">
+                            {% if row['asiste'] == 0 %}
+                            <form action="{{ url_for('marcar_asistencia') }}" method="post" class="d-inline">
+                                <input type="hidden" name="numero_socio" value="{{ row['numero_socio'] }}">
                                 <button type="submit" class="btn btn-sm btn-success">Marcar</button>
                             </form>
                             {% else %}
@@ -79,28 +114,22 @@
                 </tbody>
             </table>
         </div>
-        
-        <div class="d-grid">
-            <a href="/" class="btn btn-primary">Volver al inicio</a>
+
+        <div class="print-only mt-4">
+            <div class="row">
+                <div class="col-6">
+                    <p>Total de socios: {{ total_socios }}</p>
+                    <p>Presentes: {{ total_presentes }}</p>
+                    <p>Ausentes: {{ total_ausentes }}</p>
+                </div>
+                <div class="col-6 text-end">
+                    <p>Firma del responsable:</p>
+                    <div style="border-top: 1px solid #000; width: 200px; margin-left: auto;"></div>
+                </div>
+            </div>
         </div>
     </div>
-    
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Búsqueda en tiempo real
-        document.getElementById('buscador').addEventListener('input', function() {
-            const busqueda = this.value.toLowerCase();
-            const filas = document.querySelectorAll('tbody tr');
-            
-            filas.forEach(fila => {
-                const texto = fila.getAttribute('data-search').toLowerCase();
-                if (texto.includes(busqueda)) {
-                    fila.style.display = '';
-                } else {
-                    fila.style.display = 'none';
-                }
-            });
-        });
-    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html> 
